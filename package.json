@@ -1,0 +1,27 @@
+{
+  "name": "oidc-token-manager",
+  "version": "0.1.0",
+  "description": "Library to manage tokens obtained via OpenID Connect (OIDC)",
+  "main": "oidc-token-manager.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/IdentityModel/oidc-token-manager.git"
+  },
+  "author": "",
+  "license": "Apache-2.0",
+  "bugs": {
+    "url": "https://github.com/IdentityModel/oidc-token-manager/issues"
+  },
+  "homepage": "https://github.com/IdentityModel/oidc-token-manager",
+  "devDependencies": {
+    "bower": "^1.4.0",
+    "del": "^1.1.1",
+    "gulp": "^3.8.11",
+    "gulp-concat": "^2.5.2",
+    "gulp-rename": "^1.2.0",
+    "gulp-uglify": "^1.1.0"
+  }
+}
