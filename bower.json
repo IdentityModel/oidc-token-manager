@@ -1,6 +1,6 @@
 {
   "name": "oidc-token-manager",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "homepage": "https://github.com/IdentityModel/oidc-token-manager",
    "authors": [
     "Brock Allen <brockallen@gmail.com>",
