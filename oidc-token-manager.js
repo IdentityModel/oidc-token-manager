@@ -17,6 +17,16 @@
 var _httpRequest = new DefaultHttpRequest();
 var _promiseFactory = new DefaultPromiseFactory();
 
+function copy(obj, target) {
+    target = target || {};
+    for (var key in obj) {
+        if (obj.hasOwnProperty(key)) {
+            target[key] = obj[key];
+        }
+    }
+    return target;
+}
+
 function Token(other) {
     if (other) {
         this.profile = other.profile;

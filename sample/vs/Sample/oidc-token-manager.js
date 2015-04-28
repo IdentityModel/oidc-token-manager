@@ -8336,7 +8336,7 @@ OidcClient.prototype.processResponseAsync = function (queryString) {
             return error("No access token");
         }
 
-        if (result.token_type !== "Bearer") {
+        if (!result.token_type || result.token_type.toLowerCase() !== "bearer") {
             return error("Invalid token type");
         }
 
@@ -8393,6 +8393,16 @@ OidcClient.prototype.processResponseAsync = function (queryString) {
 
 var _httpRequest = new DefaultHttpRequest();
 var _promiseFactory = new DefaultPromiseFactory();
+
+function copy(obj, target) {
+    target = target || {};
+    for (var key in obj) {
+        if (obj.hasOwnProperty(key)) {
+            target[key] = obj[key];
+        }
+    }
+    return target;
+}
 
 function Token(other) {
     if (other) {
