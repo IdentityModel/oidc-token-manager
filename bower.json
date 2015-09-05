@@ -19,6 +19,6 @@
   "dependencies": {
   },
   "devDependencies": {
-    "oidc-client": "~0.2.0"
+    "oidc-client": "~0.3.0"
   }
 }
