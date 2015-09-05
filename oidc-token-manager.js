@@ -331,18 +331,20 @@ function TokenManager(settings) {
 
     var mgr = this;
     loadToken(mgr);
-    window.addEventListener("storage", function (e) {
-        if (e.key === mgr._settings.persistKey) {
-            loadToken(mgr);
+    if (mgr._settings.store instanceof window.localStorage.constructor) {
+        window.addEventListener("storage", function (e) {
+            if (e.key === mgr._settings.persistKey) {
+                loadToken(mgr);
 
-            if (mgr._token) {
-                mgr._callTokenObtained();
+                if (mgr._token) {
+                    mgr._callTokenObtained();
+                }
+                else {
+                    mgr._callTokenRemoved();
+                }
             }
-            else {
-                mgr._callTokenRemoved();
-            }
-        }
-    });
+        });
+    }
     configureTokenExpired(mgr);
     configureAutoRenewToken(mgr);
 
