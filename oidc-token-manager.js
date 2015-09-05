@@ -41,13 +41,19 @@ function Token(other) {
         else {
             throw Error("Either access_token or id_token required.");
         }
-        this.scopes = (other.scope || "").split(" ");
+        this.scope = other.scope;
         this.session_state = other.session_state;
     }
     else {
         this.expires_at = 0;
     }
 
+    Object.defineProperty(this, "scopes", {
+        get: function () {
+            return (this.scope || "").split(" ");
+        }
+    });
+    
     Object.defineProperty(this, "expired", {
         get: function () {
             var now = parseInt(Date.now() / 1000);
