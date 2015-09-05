@@ -252,7 +252,9 @@ function configureTokenExpired(mgr) {
 function TokenManager(settings) {
     this._settings = settings || {};
 
-    this._settings.persist = this._settings.persist || true;
+    if (typeof this._settings.persist === 'undefined') {
+        this._settings.persist = true;
+    }
     this._settings.store = this._settings.store || window.localStorage;
     this._settings.persistKey = this._settings.persistKey || "TokenManager.token";
 
