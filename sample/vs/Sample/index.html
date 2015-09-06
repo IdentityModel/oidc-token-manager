@@ -22,6 +22,7 @@
                 scope: "openid profile email read write",
                 authority: "https://localhost:44333/core",
                 silent_redirect_uri: window.location.protocol + "//" + window.location.host + "/frame.html",
+                popup_redirect_uri: window.location.protocol + "//" + window.location.host + "/popup.html",
                 silent_renew: true
             };
             var mgr = new OidcTokenManager(config);
@@ -56,19 +57,21 @@
             });
 
             $("#dialog").click(function () {
-                window.onDone = function () {
-                    console.log('modal window done');
-                    child.close();
-                    delete window.onDone;
-                };
-                var child = window.open("modal.html", "_blank", "location=no,toolbar=no");
+                mgr.openPopupForTokenAsync().then(function () {
+                    console.log('popup success');
+                }, function (err) {
+                    console.log('popup error: ', err);
+                });
             });
+
             $("#forget").click(function () {
                 mgr.removeToken();
             });
+
             $("#signout").click(function () {
                 mgr.redirectForLogout();
             });
+
             function toggleForget() {
                 $("#forget").prop("disabled", mgr.expired);
             }
