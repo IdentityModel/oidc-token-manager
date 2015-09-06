@@ -8029,6 +8029,8 @@ function OidcClient(settings) {
     });
 }
 
+OidcClient.parseOidcResult = parseOidcResult;
+
 OidcClient.prototype.loadMetadataAsync = function () {
     log("OidcClient.loadMetadataAsync");
 
@@ -8355,7 +8357,7 @@ OidcClient.prototype.processResponseAsync = function (queryString) {
 
     return promise.then(function (profile) {
         if (profile && settings.filter_protocol_claims) {
-            var remove = ["nonce", "at_hash", "iat", "nbf", "exp", "aud", "iss", "idp"];
+            var remove = ["nonce", "at_hash", "iat", "nbf", "exp", "aud", "iss"];
             remove.forEach(function (key) {
                 delete profile[key];
             });
@@ -8418,13 +8420,19 @@ function Token(other) {
         else {
             throw Error("Either access_token or id_token required.");
         }
-        this.scopes = (other.scope || "").split(" ");
+        this.scope = other.scope;
         this.session_state = other.session_state;
     }
     else {
         this.expires_at = 0;
     }
 
+    Object.defineProperty(this, "scopes", {
+        get: function () {
+            return (this.scope || "").split(" ");
+        }
+    });
+    
     Object.defineProperty(this, "expired", {
         get: function () {
             var now = parseInt(Date.now() / 1000);
@@ -8623,7 +8631,9 @@ function configureTokenExpired(mgr) {
 function TokenManager(settings) {
     this._settings = settings || {};
 
-    this._settings.persist = this._settings.persist || true;
+    if (typeof this._settings.persist === 'undefined') {
+        this._settings.persist = true;
+    }
     this._settings.store = this._settings.store || window.localStorage;
     this._settings.persistKey = this._settings.persistKey || "TokenManager.token";
 
@@ -8700,18 +8710,20 @@ function TokenManager(settings) {
 
     var mgr = this;
     loadToken(mgr);
-    window.addEventListener("storage", function (e) {
-        if (e.key === mgr._settings.persistKey) {
-            loadToken(mgr);
+    if (mgr._settings.store instanceof window.localStorage.constructor) {
+        window.addEventListener("storage", function (e) {
+            if (e.key === mgr._settings.persistKey) {
+                loadToken(mgr);
 
-            if (mgr._token) {
-                mgr._callTokenObtained();
+                if (mgr._token) {
+                    mgr._callTokenObtained();
+                }
+                else {
+                    mgr._callTokenRemoved();
+                }
             }
-            else {
-                mgr._callTokenRemoved();
-            }
-        }
-    });
+        });
+    }
     configureTokenExpired(mgr);
     configureAutoRenewToken(mgr);
 
@@ -8872,7 +8884,118 @@ TokenManager.prototype.processTokenCallbackSilent = function (hash) {
     }
 }
 
+TokenManager.prototype.openPopupForTokenAsync = function (popupSettings) {
+    popupSettings = popupSettings || {};
+    popupSettings.features = popupSettings.features || "location=no,toolbar=no";
+    popupSettings.target = popupSettings.target || "_blank";
+
+    var callback_prefix = "tokenmgr_callback_";
+
+    // this is a shared callback
+    if (!window.openPopupForTokenAsyncCallback) {
+        window.openPopupForTokenAsyncCallback = function (hash) {
+            var result = OidcClient.parseOidcResult(hash);
+            if (result && result.state && window[callback_prefix + result.state]) {
+                window[callback_prefix + result.state](hash);
+            }
+        }
+    }
+
+    var mgr = this;
+    var settings = copy(mgr._settings);
+    settings.redirect_uri = settings.popup_redirect_uri || settings.redirect_uri;
+
+    if (mgr._pendingPopup) {
+        return _promiseFactory.create(function (resolve, reject) {
+            reject(Error("Already a pending popup token request."));
+        });
+    }
+
+    var popup = window.open(settings.redirect_uri, popupSettings.target, popupSettings.features);
+    if (!popup) {
+        return _promiseFactory.create(function (resolve, reject) {
+            reject(Error("Error opening popup."));
+        });
+    }
+
+    mgr._pendingPopup = true;
+
+    function cleanup(name) {
+        if (handle) {
+            window.clearInterval(handle);
+        }
+        popup.close();
+        delete mgr._pendingPopup;
+        if (name) {
+            delete window[name];
+        }
+    }
+
+    var reject_popup;
+    function checkClosed() {
+        if (!popup.window) {
+            cleanup();
+            reject_popup(Error({msg:"Popup closed"}));
+        }
+    }
+    var handle = window.setInterval(checkClosed, 1000);
+
+    return _promiseFactory.create(function (resolve, reject) {
+        reject_popup = reject;
+
+        var oidc = new OidcClient(settings);
+        oidc.createTokenRequestAsync().then(function (request) {
+
+            var callback_name = callback_prefix + request.request_state.state;
+            window[callback_name] = function (hash) {
+                cleanup(callback_name);
+
+                oidc.processResponseAsync(hash).then(function (token) {
+                    mgr.saveToken(token);
+                    resolve();
+                }, function (err) {
+                    reject(err);
+                });
+            };
+
+            // give the popup 5 seconds to ready itself, otherwise fail
+            var seconds_to_wait = 5;
+            var interval = 500;
+            var total_times = (seconds_to_wait*1000) / interval;
+            var count = 0;
+            function redirectPopup() {
+                if (popup.setUrl) {
+                    popup.setUrl(request.url);
+                }
+                else if (count < total_times) {
+                    count++;
+                    window.setTimeout(redirectPopup, interval);
+                }
+                else {
+                    cleanup(callback_name);
+                    reject(Error("Timeout error on popup"));
+                }
+            }
+            redirectPopup();
+        }, function (err) {
+            cleanup();
+            reject(err);
+        });
+    });
+}
+
+TokenManager.prototype.processTokenPopup = function (hash) {
+    hash = hash || window.location.hash; 
+
+    window.setUrl = function (url) {
+        window.location = url;
+    }
     
+    if (hash) {
+        window.opener.openPopupForTokenAsyncCallback(hash);
+    }
+}
+   
     // exports
     window.OidcTokenManager = TokenManager;
 })();
