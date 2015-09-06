@@ -505,4 +505,115 @@ TokenManager.prototype.processTokenCallbackSilent = function (hash) {
     }
 }
 
+TokenManager.prototype.openPopupForTokenAsync = function (popupSettings) {
+    popupSettings = popupSettings || {};
+    popupSettings.features = popupSettings.features || "location=no,toolbar=no";
+    popupSettings.target = popupSettings.target || "_blank";
+
+    var callback_prefix = "tokenmgr_callback_";
+
+    // this is a shared callback
+    if (!window.openPopupForTokenAsyncCallback) {
+        window.openPopupForTokenAsyncCallback = function (hash) {
+            var result = OidcClient.parseOidcResult(hash);
+            if (result && result.state && window[callback_prefix + result.state]) {
+                window[callback_prefix + result.state](hash);
+            }
+        }
+    }
+
+    var mgr = this;
+    var settings = copy(mgr._settings);
+    settings.redirect_uri = settings.popup_redirect_uri || settings.redirect_uri;
+
+    if (mgr._pendingPopup) {
+        return _promiseFactory.create(function (resolve, reject) {
+            reject(Error("Already a pending popup token request."));
+        });
+    }
+
+    var popup = window.open(settings.redirect_uri, popupSettings.target, popupSettings.features);
+    if (!popup) {
+        return _promiseFactory.create(function (resolve, reject) {
+            reject(Error("Error opening popup."));
+        });
+    }
+
+    mgr._pendingPopup = true;
+
+    function cleanup(name) {
+        if (handle) {
+            window.clearInterval(handle);
+        }
+        popup.close();
+        delete mgr._pendingPopup;
+        if (name) {
+            delete window[name];
+        }
+    }
+
+    var reject_popup;
+    function checkClosed() {
+        if (!popup.window) {
+            cleanup();
+            reject_popup(Error({msg:"Popup closed"}));
+        }
+    }
+    var handle = window.setInterval(checkClosed, 1000);
+
+    return _promiseFactory.create(function (resolve, reject) {
+        reject_popup = reject;
+
+        var oidc = new OidcClient(settings);
+        oidc.createTokenRequestAsync().then(function (request) {
+
+            var callback_name = callback_prefix + request.request_state.state;
+            window[callback_name] = function (hash) {
+                cleanup(callback_name);
+
+                oidc.processResponseAsync(hash).then(function (token) {
+                    mgr.saveToken(token);
+                    resolve();
+                }, function (err) {
+                    reject(err);
+                });
+            };
+
+            // give the popup 5 seconds to ready itself, otherwise fail
+            var seconds_to_wait = 5;
+            var interval = 500;
+            var total_times = (seconds_to_wait*1000) / interval;
+            var count = 0;
+            function redirectPopup() {
+                if (popup.setUrl) {
+                    popup.setUrl(request.url);
+                }
+                else if (count < total_times) {
+                    count++;
+                    window.setTimeout(redirectPopup, interval);
+                }
+                else {
+                    cleanup(callback_name);
+                    reject(Error("Timeout error on popup"));
+                }
+            }
+            redirectPopup();
+        }, function (err) {
+            cleanup();
+            reject(err);
+        });
+    });
+}
+
+TokenManager.prototype.processTokenPopup = function (hash) {
+    hash = hash || window.location.hash; 
+
+    window.setUrl = function (url) {
+        window.location = url;
+    }
     
+    if (hash) {
+        window.opener.openPopupForTokenAsyncCallback(hash);
+    }
+}
+   
