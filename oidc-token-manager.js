@@ -313,6 +313,11 @@ function TokenManager(settings) {
             return 0;
         }
     });
+    Object.defineProperty(this, "scope", {
+        get: function () {
+            return this._token && this._token.scope;
+        }
+    });
     Object.defineProperty(this, "scopes", {
         get: function () {
             if (this._token) {
