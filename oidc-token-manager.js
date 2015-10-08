@@ -448,18 +448,18 @@ TokenManager.prototype.removeToken = function () {
     this.saveToken(null);
 }
 
-TokenManager.prototype.redirectForToken = function () {
+TokenManager.prototype.redirectForToken = function (state) {
     var oidc = this.oidcClient;
-    oidc.createTokenRequestAsync().then(function (request) {
+    oidc.createTokenRequestAsync(state).then(function (request) {
         window.location = request.url;
     }, function (err) {
         console.error("TokenManager.redirectForToken error: " + (err && err.message || err || ""));
     });
 }
 
-TokenManager.prototype.redirectForLogout = function () {
+TokenManager.prototype.redirectForLogout = function (state) {
     var mgr = this;
-    mgr.oidcClient.createLogoutRequestAsync(mgr.id_token).then(function (url) {
+    mgr.oidcClient.createLogoutRequestAsync(mgr.id_token, state).then(function (url) {
         mgr.removeToken();
         window.location = url;
     }, function (err) {
