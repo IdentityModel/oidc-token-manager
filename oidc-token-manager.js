@@ -257,6 +257,7 @@ function TokenManager(settings) {
     }
     this._settings.store = this._settings.store || window.localStorage;
     this._settings.persistKey = this._settings.persistKey || "TokenManager.token";
+    this._settings.appStorePrefix = this._settings.appStorePrefix ||  "app.state.";
 
     this.oidcClient = new OidcClient(this._settings);
 
@@ -448,8 +449,13 @@ TokenManager.prototype.removeToken = function () {
     this.saveToken(null);
 }
 
-TokenManager.prototype.redirectForToken = function (state) {
+TokenManager.prototype.redirectForToken = function (clientState) {
     var oidc = this.oidcClient;
+
+    var state = rand();
+    var persistKey = this._settings.appStorePrefix + state;
+    this._settings.store.setItem(persistKey, clientState);
+
     oidc.createTokenRequestAsync(state).then(function (request) {
         window.location = request.url;
     }, function (err) {
@@ -457,8 +463,13 @@ TokenManager.prototype.redirectForToken = function (state) {
     });
 }
 
-TokenManager.prototype.redirectForLogout = function (state) {
+TokenManager.prototype.redirectForLogout = function (clientState) {
     var mgr = this;
+
+    var state = rand();
+    var persistKey = this._settings.appStorePrefix + state;
+    this._settings.store.setItem(persistKey, clientState);
+
     mgr.oidcClient.createLogoutRequestAsync(mgr.id_token, state).then(function (url) {
         mgr.removeToken();
         window.location = url;
