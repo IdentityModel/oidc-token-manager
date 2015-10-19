@@ -450,13 +450,17 @@ TokenManager.prototype.removeToken = function () {
 }
 
 TokenManager.prototype.redirectForToken = function (clientState) {
-    var oidc = this.oidcClient;
+    var mgr = this;
 
-    var state = rand();
-    var persistKey = this._settings.appStorePrefix + state;
-    this._settings.store.setItem(persistKey, clientState);
+    mgr.oidcClient.createTokenRequestAsync().then(function (request) {
 
-    oidc.createTokenRequestAsync(state).then(function (request) {
+        var persistKey = mgr._settings.appStorePrefix;
+        var clientData = {
+            state: request.request_state.state,
+            data: clientState
+        };
+        mgr._settings.store.setItem(persistKey, JSON.stringify(clientData));
+
         window.location = request.url;
     }, function (err) {
         console.error("TokenManager.redirectForToken error: " + (err && err.message || err || ""));
@@ -466,13 +470,16 @@ TokenManager.prototype.redirectForToken = function (clientState) {
 TokenManager.prototype.redirectForLogout = function (clientState) {
     var mgr = this;
 
-    var state = rand();
-    var persistKey = this._settings.appStorePrefix + state;
-    this._settings.store.setItem(persistKey, clientState);
-
-    mgr.oidcClient.createLogoutRequestAsync(mgr.id_token, state).then(function (url) {
+    mgr.oidcClient.createLogoutRequestAsync(mgr.id_token).then(function (request) {
         mgr.removeToken();
-        window.location = url;
+
+        var clientData = {
+            state: request.state,
+            data: clientState
+        };
+        mgr._settings.store.setItem(mgr._settings.appStorePrefix, JSON.stringify(clientData));
+
+        window.location = request.url;
     }, function (err) {
         console.error("TokenManager.redirectForLogout error: " + (err && err.message || err || ""));
     });
@@ -482,6 +489,8 @@ TokenManager.prototype.processTokenCallbackAsync = function (queryString) {
     var mgr = this;
     return mgr.oidcClient.processResponseAsync(queryString).then(function (token) {
         mgr.saveToken(token);
+
+        return token.state;
     });
 }
 
