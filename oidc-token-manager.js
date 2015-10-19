@@ -490,7 +490,12 @@ TokenManager.prototype.processTokenCallbackAsync = function (queryString) {
     return mgr.oidcClient.processResponseAsync(queryString).then(function (token) {
         mgr.saveToken(token);
 
-        return token.state;
+        var clientState = mgr._settings.store.getItem(mgr._settings.clientPersistKey);
+        clientState = JSON.parse(clientState);
+        if (clientState && clientState.state === token.state) {
+            mgr._settings.store.removeItem(mgr._settings.clientPersistKey);
+            return clientState;
+        }
     });
 }
 
