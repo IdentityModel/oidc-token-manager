@@ -7800,10 +7800,6 @@ function DefaultHttpRequest() {
 
             try {
                 var xhr = new XMLHttpRequest();
-                if (typeof XDomainRequest !== "undefined" && document.documentMode && document.documentMode < 10) {
-                    xhr = new XDomainRequest();
-                    xhr.onprogress = function() {};
-                }
                 xhr.open("GET", url);
                 xhr.responseType = "json";
 
@@ -7815,13 +7811,10 @@ function DefaultHttpRequest() {
 
                 xhr.onload = function () {
                     try {
-                        if (typeof xhr.status === "undefined" || xhr.status === 200) {
+                        if (xhr.status === 200) {
                             var response = xhr.response;
                             if (typeof response === "string") {
                                 response = JSON.parse(response);
-                            }
-                            if (typeof response === "undefined") {
-                                response = JSON.parse(xhr.responseText);
                             }
                             resolve(response);
                         }
@@ -8193,12 +8186,19 @@ OidcClient.prototype.createLogoutRequestAsync = function (id_token_hint) {
             return error("No end_session_endpoint in metadata");
         }
 
+        var state = rand();
         var url = metadata.end_session_endpoint;
         if (id_token_hint && settings.post_logout_redirect_uri) {
             url += "?post_logout_redirect_uri=" + encodeURIComponent(settings.post_logout_redirect_uri);
             url += "&id_token_hint=" + encodeURIComponent(id_token_hint);
+            url += "&state=" + encodeURIComponent(state);
         }
-        return url;
+
+        // Modify to return an object like redirect for token and generate state here
+        return {
+            url: url,
+            state: state
+        };
     });
 }
 
@@ -8836,13 +8836,17 @@ TokenManager.prototype.removeToken = function () {
 }
 
 TokenManager.prototype.redirectForToken = function (clientState) {
-    var oidc = this.oidcClient;
+    var mgr = this;
 
-    var state = rand();
-    var persistKey = this._settings.appStorePrefix + state;
-    this._settings.store.setItem(persistKey, clientState);
+    mgr.oidcClient.createTokenRequestAsync().then(function (request) {
 
-    oidc.createTokenRequestAsync(state).then(function (request) {
+        var persistKey = mgr._settings.appStorePrefix;
+        var clientData = {
+            state: request.request_state.state,
+            data: clientState
+        };
+        mgr._settings.store.setItem(persistKey, JSON.stringify(clientData));
+
         window.location = request.url;
     }, function (err) {
         console.error("TokenManager.redirectForToken error: " + (err && err.message || err || ""));
@@ -8852,13 +8856,16 @@ TokenManager.prototype.redirectForToken = function (clientState) {
 TokenManager.prototype.redirectForLogout = function (clientState) {
     var mgr = this;
 
-    var state = rand();
-    var persistKey = this._settings.appStorePrefix + state;
-    this._settings.store.setItem(persistKey, clientState);
-
-    mgr.oidcClient.createLogoutRequestAsync(mgr.id_token, state).then(function (url) {
+    mgr.oidcClient.createLogoutRequestAsync(mgr.id_token).then(function (request) {
         mgr.removeToken();
-        window.location = url;
+
+        var clientData = {
+            state: request.state,
+            data: clientState
+        };
+        mgr._settings.store.setItem(mgr._settings.appStorePrefix, JSON.stringify(clientData));
+
+        window.location = request.url;
     }, function (err) {
         console.error("TokenManager.redirectForLogout error: " + (err && err.message || err || ""));
     });
@@ -8868,6 +8875,13 @@ TokenManager.prototype.processTokenCallbackAsync = function (queryString) {
     var mgr = this;
     return mgr.oidcClient.processResponseAsync(queryString).then(function (token) {
         mgr.saveToken(token);
+
+        var clientState = mgr._settings.store.getItem(mgr._settings.clientPersistKey);
+        clientState = JSON.parse(clientState);
+        if (clientState && clientState.state === token.state) {
+            mgr._settings.store.removeItem(mgr._settings.clientPersistKey);
+            return clientState;
+        }
     });
 }
 
