@@ -455,10 +455,13 @@ TokenManager.prototype.removeToken = function () {
 
 TokenManager.prototype.redirectForToken = function () {
     var oidc = this.oidcClient;
-    oidc.createTokenRequestAsync().then(function (request) {
+    return oidc.createTokenRequestAsync().then(function (request) {
         window.location = request.url;
+        return _promiseFactory.resolve(request.url);
     }, function (err) {
-        console.error("TokenManager.redirectForToken error: " + (err && err.message || err || ""));
+        var msg = "TokenManager.redirectForToken error: " + (err && err.message || err || "");
+        console.error(msg);
+        return _promiseFactory.reject(msg);
     });
 }
 
