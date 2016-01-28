@@ -100,11 +100,13 @@ Token.prototype.toJSON = function () {
     });
 }
 
-function FrameLoader(url) {
+function FrameLoader(url, config) {
     this.url = url;
+    this.config = config || {};
 }
 
 FrameLoader.prototype.loadAsync = function (url) {
+    var self = this;
     url = url || this.url;
 
     if (!url) {
@@ -136,7 +138,7 @@ FrameLoader.prototype.loadAsync = function (url) {
             }
         }
 
-        var handle = window.setTimeout(cancel, 5000);
+        var handle = window.setTimeout(cancel, self.cancelDelay || 5000);
         window.addEventListener("message", message, false);
         window.document.body.appendChild(frame);
         frame.src = url;
@@ -492,7 +494,7 @@ TokenManager.prototype.renewTokenSilentAsync = function () {
 
     var oidc = new OidcClient(settings);
     return oidc.createTokenRequestAsync().then(function (request) {
-        var frame = new FrameLoader(request.url);
+        var frame = new FrameLoader(request.url, { cancelDelay: mgr._settings.silent_renew_timeout });
         return frame.loadAsync().then(function (hash) {
             return oidc.processResponseAsync(hash).then(function (token) {
                 mgr.saveToken(token);
