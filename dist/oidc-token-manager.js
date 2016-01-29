@@ -8481,7 +8481,9 @@ Token.prototype.toJSON = function () {
 
 function FrameLoader(url, config) {
     this.url = url;
-    this.config = config || {};
+    config = config || {};
+    config.cancelDelay = config.cancelDelay || 5000;
+    this.config = config;
 }
 
 FrameLoader.prototype.loadAsync = function (url) {
@@ -8517,7 +8519,7 @@ FrameLoader.prototype.loadAsync = function (url) {
             }
         }
 
-        var handle = window.setTimeout(cancel, self.cancelDelay || 5000);
+        var handle = window.setTimeout(cancel, self.config.cancelDelay);
         window.addEventListener("message", message, false);
         window.document.body.appendChild(frame);
         frame.src = url;
