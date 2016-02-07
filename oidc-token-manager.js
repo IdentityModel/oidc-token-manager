@@ -112,7 +112,7 @@ FrameLoader.prototype.loadAsync = function (url) {
     url = url || this.url;
 
     if (!url) {
-        return _promiseFactory.reject("No url provided");
+        return _promiseFactory.reject(Error("No url provided"));
     }
 
     return _promiseFactory.create(function (resolve, reject) {
@@ -207,7 +207,7 @@ function configureAutoRenewToken(mgr) {
         mgr.addOnTokenExpiring(function () {
             mgr.renewTokenSilentAsync().catch(function (e) {
                 mgr._callSilentTokenRenewFailed();
-                console.error(e.message || e);
+                console.error(e && e.message || "Unknown error");
             });
         });
 
@@ -462,7 +462,7 @@ TokenManager.prototype.redirectForToken = function () {
     oidc.createTokenRequestAsync().then(function (request) {
         window.location = request.url;
     }, function (err) {
-        console.error("TokenManager.redirectForToken error: " + (err && err.message || err || ""));
+        console.error("TokenManager.redirectForToken error: " + (err && err.message || "Unknown error"));
     });
 }
 
@@ -472,7 +472,7 @@ TokenManager.prototype.redirectForLogout = function () {
         mgr.removeToken();
         window.location = url;
     }, function (err) {
-        console.error("TokenManager.redirectForLogout error: " + (err && err.message || err || ""));
+        console.error("TokenManager.redirectForLogout error: " + (err && err.message || "Unknown error"));
     });
 }
 
@@ -487,7 +487,7 @@ TokenManager.prototype.renewTokenSilentAsync = function () {
     var mgr = this;
 
     if (!mgr._settings.silent_redirect_uri) {
-        return _promiseFactory.reject("silent_redirect_uri not configured");
+        return _promiseFactory.reject(Error("silent_redirect_uri not configured"));
     }
 
     var settings = copy(mgr._settings);
@@ -565,7 +565,7 @@ TokenManager.prototype.openPopupForTokenAsync = function (popupSettings) {
     function checkClosed() {
         if (!popup.window) {
             cleanup();
-            reject_popup(Error({msg:"Popup closed"}));
+            reject_popup(Error("Popup closed"));
         }
     }
     var handle = window.setInterval(checkClosed, 1000);
