@@ -14,6 +14,10 @@
 * limitations under the License.
 */
 
+// globals
+var _promiseFactory = OidcClient._promiseFactory;
+var _httpRequest  = OidcClient._httpRequest;
+
 function copy(obj, target) {
     target = target || {};
     for (var key in obj) {
