@@ -460,20 +460,22 @@ TokenManager.prototype.removeToken = function () {
 
 TokenManager.prototype.redirectForToken = function () {
     var oidc = this.oidcClient;
-    oidc.createTokenRequestAsync().then(function (request) {
+    return oidc.createTokenRequestAsync().then(function (request) {
         window.location = request.url;
     }, function (err) {
         console.error("TokenManager.redirectForToken error: " + (err && err.message || "Unknown error"));
+        return _promiseFactory.reject(err);
     });
 }
 
 TokenManager.prototype.redirectForLogout = function () {
     var mgr = this;
-    mgr.oidcClient.createLogoutRequestAsync(mgr.id_token).then(function (url) {
+    return mgr.oidcClient.createLogoutRequestAsync(mgr.id_token).then(function (url) {
         mgr.removeToken();
         window.location = url;
     }, function (err) {
         console.error("TokenManager.redirectForLogout error: " + (err && err.message || "Unknown error"));
+        return _promiseFactory.reject(err);
     });
 }
 
