@@ -1,6 +1,6 @@
 {
   "name": "oidc-token-manager",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "Library to manage tokens obtained via OpenID Connect (OIDC)",
   "main": "oidc-token-manager.js",
   "scripts": {
