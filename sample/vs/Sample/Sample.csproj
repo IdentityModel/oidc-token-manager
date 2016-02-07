@@ -74,7 +74,6 @@
     <Content Include="frame.html" />
     <Content Include="index.html" />
     <Content Include="jquery-2.1.0.min.js" />
-    <Content Include="modal.html" />
     <Content Include="oidc-token-manager.js" />
     <Content Include="Web.config" />
   </ItemGroup>
@@ -96,7 +95,7 @@
           <AutoAssignPort>True</AutoAssignPort>
           <DevelopmentServerPort>43942</DevelopmentServerPort>
           <DevelopmentServerVPath>/</DevelopmentServerVPath>
-          <IISUrl>http://localhost:23453/</IISUrl>
+          <IISUrl>http://localhost:21575</IISUrl>
           <NTLMAuthentication>False</NTLMAuthentication>
           <UseCustomServer>False</UseCustomServer>
           <CustomServerUrl>
