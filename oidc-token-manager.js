@@ -14,9 +14,6 @@
 * limitations under the License.
 */
 
-var _httpRequest = new DefaultHttpRequest();
-var _promiseFactory = new DefaultPromiseFactory();
-
 function copy(obj, target) {
     target = target || {};
     for (var key in obj) {
