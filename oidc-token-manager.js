@@ -1,5 +1,5 @@
 /*
-* Copyright 2014 Dominick Baier, Brock Allen
+* Copyright 2014-2016 Dominick Baier, Brock Allen
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -14,8 +14,9 @@
 * limitations under the License.
 */
 
-var _httpRequest = new DefaultHttpRequest();
-var _promiseFactory = new DefaultPromiseFactory();
+// globals
+var _promiseFactory = OidcClient._promiseFactory;
+var _httpRequest  = OidcClient._httpRequest;
 
 function copy(obj, target) {
     target = target || {};
@@ -100,15 +101,19 @@ Token.prototype.toJSON = function () {
     });
 }
 
-function FrameLoader(url) {
+function FrameLoader(url, config) {
     this.url = url;
+    config = config || {};
+    config.cancelDelay = config.cancelDelay || 5000;
+    this.config = config;
 }
 
 FrameLoader.prototype.loadAsync = function (url) {
+    var self = this;
     url = url || this.url;
 
     if (!url) {
-        return _promiseFactory.reject("No url provided");
+        return _promiseFactory.reject(Error("No url provided"));
     }
 
     return _promiseFactory.create(function (resolve, reject) {
@@ -136,7 +141,7 @@ FrameLoader.prototype.loadAsync = function (url) {
             }
         }
 
-        var handle = window.setTimeout(cancel, 5000);
+        var handle = window.setTimeout(cancel, self.config.cancelDelay);
         window.addEventListener("message", message, false);
         window.document.body.appendChild(frame);
         frame.src = url;
@@ -203,7 +208,7 @@ function configureAutoRenewToken(mgr) {
         mgr.addOnTokenExpiring(function () {
             mgr.renewTokenSilentAsync().catch(function (e) {
                 mgr._callSilentTokenRenewFailed();
-                console.error(e.message || e);
+                console.error(e && e.message || "Unknown error");
             });
         });
 
@@ -257,7 +262,7 @@ function TokenManager(settings) {
     }
     this._settings.store = this._settings.store || window.localStorage;
     this._settings.persistKey = this._settings.persistKey || "TokenManager.token";
-    this._settings.appStorePrefix = this._settings.appStorePrefix ||  "app.state.";
+    this._settings.clientPersistKey = this._settings.clientPersistKey ||  "app.state.";
 
     this.oidcClient = new OidcClient(this._settings);
 
@@ -312,6 +317,11 @@ function TokenManager(settings) {
                 return this._token.expires_at;
             }
             return 0;
+        }
+    });
+    Object.defineProperty(this, "scope", {
+        get: function () {
+            return this._token && this._token.scope;
         }
     });
     Object.defineProperty(this, "scopes", {
@@ -454,7 +464,7 @@ TokenManager.prototype.redirectForToken = function (clientState) {
 
     mgr.oidcClient.createTokenRequestAsync().then(function (request) {
 
-        var persistKey = mgr._settings.appStorePrefix;
+        var persistKey = mgr._settings.clientPersistKey;
         var clientData = {
             state: request.request_state.state,
             data: clientState
@@ -463,7 +473,8 @@ TokenManager.prototype.redirectForToken = function (clientState) {
 
         window.location = request.url;
     }, function (err) {
-        console.error("TokenManager.redirectForToken error: " + (err && err.message || err || ""));
+        console.error("TokenManager.redirectForToken error: " + (err && err.message || "Unknown error"));
+        return _promiseFactory.reject(err);
     });
 }
 
@@ -477,11 +488,12 @@ TokenManager.prototype.redirectForLogout = function (clientState) {
             state: request.state,
             data: clientState
         };
-        mgr._settings.store.setItem(mgr._settings.appStorePrefix, JSON.stringify(clientData));
+        mgr._settings.store.setItem(mgr._settings.clientPersistKey, JSON.stringify(clientData));
 
         window.location = request.url;
     }, function (err) {
-        console.error("TokenManager.redirectForLogout error: " + (err && err.message || err || ""));
+        console.error("TokenManager.redirectForLogout error: " + (err && err.message || "Unknown error"));
+        return _promiseFactory.reject(err);
     });
 }
 
@@ -503,16 +515,18 @@ TokenManager.prototype.renewTokenSilentAsync = function () {
     var mgr = this;
 
     if (!mgr._settings.silent_redirect_uri) {
-        return _promiseFactory.reject("silent_redirect_uri not configured");
+        return _promiseFactory.reject(Error("silent_redirect_uri not configured"));
     }
 
     var settings = copy(mgr._settings);
     settings.redirect_uri = settings.silent_redirect_uri;
-    settings.prompt = "none";
+    if (!settings.prompt) {
+        settings.prompt = "none";
+    }
 
     var oidc = new OidcClient(settings);
     return oidc.createTokenRequestAsync().then(function (request) {
-        var frame = new FrameLoader(request.url);
+        var frame = new FrameLoader(request.url, { cancelDelay: mgr._settings.silent_renew_timeout });
         return frame.loadAsync().then(function (hash) {
             return oidc.processResponseAsync(hash).then(function (token) {
                 mgr.saveToken(token);
@@ -581,7 +595,7 @@ TokenManager.prototype.openPopupForTokenAsync = function (popupSettings) {
     function checkClosed() {
         if (!popup.window) {
             cleanup();
-            reject_popup(Error({msg:"Popup closed"}));
+            reject_popup(Error("Popup closed"));
         }
     }
     var handle = window.setInterval(checkClosed, 1000);

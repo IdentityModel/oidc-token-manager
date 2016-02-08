@@ -12,10 +12,8 @@ gulp.task('clean', function(cb){
 
 gulp.task('default', ['clean'], function () {
   return gulp.src([
-	  	'lib/iife-start.js'
-	    ,'lib/defaultHttpRequest.js'
-	    ,'lib/defaultPromiseFactory.js'
-		,'bower_components/oidc-client/dist/oidc-client.js'
+		'bower_components/oidc-client/dist/oidc-client.js'
+	  	,'lib/iife-start.js'
 	    ,'oidc-token-manager.js'
 	  	,'lib/iife-end.js'
 	])
