@@ -131,7 +131,7 @@ FrameLoader.prototype.loadAsync = function (url) {
 
         function cancel(e) {
             cleanup();
-            reject();
+            reject(Error("Timeout on loading frame"));
         }
 
         function message(e) {
