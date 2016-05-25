@@ -2,12 +2,6 @@
 
 Library to manage tokens obtained via OpenID Connect (OIDC)
 
-## Install
-To install you can either get the oidc-token-manager via bower, via the dist folder in this repo, or you can clone this repo and run gulp yourself.
+## Discontented
 
-## Docs
-Some initial docs are [here](https://github.com/IdentityModel/oidc-token-manager/wiki).
-
-## Samples
-There are some samples in this repo.
-
+This library has been discontented. All of the functionality of this library has been consolidated into, improved upon, and replaced by [oidc-client](https://github.com/IdentityModel/oidc-client-js).
