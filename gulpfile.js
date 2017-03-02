@@ -7,7 +7,7 @@ var gulp = require('gulp')
 ;
 
 gulp.task('clean', function(cb){
-	del('dist', cb);
+	return del('dist', cb);
 });
 
 gulp.task('default', ['clean'], function () {
