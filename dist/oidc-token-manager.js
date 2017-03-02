@@ -8062,12 +8062,19 @@ OidcClient.prototype.createLogoutRequestAsync = function (id_token_hint) {
             return error("No end_session_endpoint in metadata");
         }
 
+        var state = rand();
         var url = metadata.end_session_endpoint;
         if (id_token_hint && settings.post_logout_redirect_uri) {
             url += "?post_logout_redirect_uri=" + encodeURIComponent(settings.post_logout_redirect_uri);
             url += "&id_token_hint=" + encodeURIComponent(id_token_hint);
+            url += "&state=" + encodeURIComponent(state);
         }
-        return url;
+
+        // Modify to return an object like redirect for token and generate state here
+        return {
+            url: url,
+            state: state
+        };
     });
 }
 
@@ -8521,6 +8528,7 @@ function TokenManager(settings) {
     }
     this._settings.store = this._settings.store || window.localStorage;
     this._settings.persistKey = this._settings.persistKey || "TokenManager.token";
+    this._settings.clientPersistKey = this._settings.clientPersistKey ||  "app.state.";
 
     this.oidcClient = new OidcClient(this._settings);
 
@@ -8717,9 +8725,18 @@ TokenManager.prototype.removeToken = function () {
     this.saveToken(null);
 }
 
-TokenManager.prototype.redirectForToken = function () {
-    var oidc = this.oidcClient;
-    return oidc.createTokenRequestAsync().then(function (request) {
+TokenManager.prototype.redirectForToken = function (clientState) {
+    var mgr = this;
+
+    mgr.oidcClient.createTokenRequestAsync().then(function (request) {
+
+        var persistKey = mgr._settings.clientPersistKey;
+        var clientData = {
+            state: request.request_state.state,
+            data: clientState
+        };
+        mgr._settings.store.setItem(persistKey, JSON.stringify(clientData));
+
         window.location = request.url;
     }, function (err) {
         console.error("TokenManager.redirectForToken error: " + (err && err.message || "Unknown error"));
@@ -8727,11 +8744,19 @@ TokenManager.prototype.redirectForToken = function () {
     });
 }
 
-TokenManager.prototype.redirectForLogout = function () {
+TokenManager.prototype.redirectForLogout = function (clientState) {
     var mgr = this;
-    return mgr.oidcClient.createLogoutRequestAsync(mgr.id_token).then(function (url) {
+
+    mgr.oidcClient.createLogoutRequestAsync(mgr.id_token).then(function (request) {
         mgr.removeToken();
-        window.location = url;
+
+        var clientData = {
+            state: request.state,
+            data: clientState
+        };
+        mgr._settings.store.setItem(mgr._settings.clientPersistKey, JSON.stringify(clientData));
+
+        window.location = request.url;
     }, function (err) {
         console.error("TokenManager.redirectForLogout error: " + (err && err.message || "Unknown error"));
         return _promiseFactory.reject(err);
@@ -8742,6 +8767,13 @@ TokenManager.prototype.processTokenCallbackAsync = function (queryString) {
     var mgr = this;
     return mgr.oidcClient.processResponseAsync(queryString).then(function (token) {
         mgr.saveToken(token);
+
+        var clientState = mgr._settings.store.getItem(mgr._settings.clientPersistKey);
+        clientState = JSON.parse(clientState);
+        if (clientState && clientState.state === token.state) {
+            mgr._settings.store.removeItem(mgr._settings.clientPersistKey);
+            return clientState;
+        }
     });
 }
 
