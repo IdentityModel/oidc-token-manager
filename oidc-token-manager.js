@@ -559,7 +559,9 @@ TokenManager.prototype.openPopupForTokenAsync = function (popupSettings) {
         if (handle) {
             window.clearInterval(handle);
         }
-        popup.close();
+        if (popup) {
+            popup.close();
+        }
         delete mgr._pendingPopup;
         if (name) {
             delete window[name];
@@ -568,7 +570,7 @@ TokenManager.prototype.openPopupForTokenAsync = function (popupSettings) {
 
     var reject_popup;
     function checkClosed() {
-        if (!popup.window) {
+        if (!popup || !popup.window || popup.closed) {
             cleanup();
             reject_popup(Error("Popup closed"));
         }
